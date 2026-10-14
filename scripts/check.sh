@@ -6,6 +6,12 @@ for root in bootstrap environments environments/observability; do
   (
     cd "$root"
     terraform init -backend=false -input=false -lockfile=readonly
-    terraform validate
+    if [[ "$root" == bootstrap ]]; then
+      terraform validate
+    else
+      for workspace in dev prod; do
+        TF_WORKSPACE="$workspace" terraform validate
+      done
+    fi
   )
 done

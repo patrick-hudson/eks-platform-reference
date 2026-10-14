@@ -10,7 +10,7 @@ Run these checks from the repository root:
 ```bash
 bash scripts/check.sh
 bash scripts/test.sh
-bash -n scripts/check.sh scripts/test.sh scripts/deploy.sh
+bash -n scripts/check.sh scripts/test.sh scripts/deploy.sh scripts/comment-plan.sh
 ```
 
 The Terraform tests run plans with synthetic credentials and replace the AWS
@@ -37,7 +37,7 @@ an actual second no-change plan have been verified. For the first deployment:
 
 The local check results are: formatting passed, three roots validated, eleven
 offline plan runs passed (including missing-workspace-settings and wrong-zone
-rejection runs), and seventeen Python audit and deployment-script tests passed.
+rejection runs), and twenty-four Python audit, deployment and PR-comment tests passed.
 Both environment roots load their settings from `terraform.tfvars`; the dev
 and prod tests pass without a var-file. A separate offline test confirmed that
 the default workspace fails variable validation. The script tests cover
@@ -46,6 +46,14 @@ selection, manual operation selection, missing-cluster deferral and errors
 that must stop an apply. Cluster deletion and replacement stop before apply;
 initial creation and in-place updates are allowed. Failures at each plan/apply
 stage stop later deployment stages.
+Push-triggered deployments are rejected; merges run validation only and live
+applies require an explicit manual workflow run. Validation selects dev and
+prod through `TF_WORKSPACE` without changing the local workspace selection.
+The checks pass with the fresh runner's default-workspace context.
+PR-comment tests cover counts without resource values, replacements, no-ops,
+updates, deferred monitoring, failed plans, paginated comment lookup, and
+updating only the matching environment's bot comment. GitHub API calls are
+mocked; live comment publication requires an approved PR plan job.
 Deployment scripts are tested from a directory outside the repository too. Bash syntax checks passed. Both
 pinned Helm charts rendered using the exact Terraform-generated dev values: 104 monitoring
 objects, generated Grafana credentials, the expected gp3 PVCs, disabled anonymous

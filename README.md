@@ -42,7 +42,7 @@ environments/                      shared platform root
   terraform.tfvars                 platform settings keyed by dev/prod workspace
   observability/                   shared monitoring root
     terraform.tfvars               monitoring settings keyed by dev/prod workspace
-.github/workflows/terraform.yml     validation, PR plans and main applies
+.github/workflows/terraform.yml     validation, PR plans and manual applies
 scripts/                           local checks and workflow deployment
 ```
 
@@ -258,11 +258,19 @@ credential-free checks only. No `pull_request_target` execution is used.
 For an environment without a cluster yet, the platform plan runs and the live
 monitoring plan is explicitly deferred. Static validation and offline monitoring
 plans still run. Once a cluster exists, both live plans run. PR plans are unlocked
-because their roles cannot write lock files; they can be stale. Main applies
+because their roles cannot write lock files; they can be stale. Manual applies
 create new saved plans under S3 locks and apply those exact files in the same job.
 PR plan artifacts are never reused for deployment or published as artifacts.
 
-A merge to `main` applies platform then monitoring for both environments.
+Each PR plan updates one bot comment per environment with platform and monitoring
+resource counts: add, change, destroy and replace. The comment includes the
+commit, job result and workflow link. Failed plans and deferred monitoring are
+marked explicitly. Comments contain counts only; raw plan values and JSON are
+not posted. Retries update the existing comment for that environment.
+
+A merge or push to `main` runs validation only. It does not request AWS
+credentials or run a live plan or apply. This lets the demo be merged and
+maintained without starting billable infrastructure.
 Manual runs select one environment and either `plan` or `apply`; they default
 to a dev plan. Manual applies require `main`. Deployment jobs serialize per environment and
 are never canceled mid-apply. The prod environment approval sits before AWS

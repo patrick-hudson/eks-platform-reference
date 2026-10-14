@@ -22,7 +22,7 @@ if stage == os.environ.get('DEPLOY_TEST_FAIL_STAGE'):
     print('Synthetic Terraform failure', file=sys.stderr)
     sys.exit(1)
 if operation == 'show':
-    print(json.dumps({'planned_values': {'outputs': {'cluster_name': {'value': 'test-cluster'}, 'region': {'value': 'test-region'}}}, 'resource_changes': [{'type': 'aws_eks_cluster', 'change': {'actions': json.loads(os.environ['DEPLOY_TEST_CLUSTER_ACTIONS'])}}]}))
+    print(json.dumps({'planned_values': {'outputs': {'cluster_name': {'value': 'test-cluster'}, 'region': {'value': 'test-region'}}}, 'resource_changes': [{'type': 'aws_eks_cluster', 'change': {'actions': json.loads(os.environ['DEPLOY_TEST_CLUSTER_ACTIONS']), 'after': {'password': 'sensitive-test-value'}}}]}))
 '''
 AWS = '''#!/usr/bin/env python3
 import os, sys
@@ -47,7 +47,10 @@ class DeployTests(unittest.TestCase):
             if operation is None:
                 operation = "plan" if event == "pull_request" else "apply"
             environment = dict(os.environ, PATH=str(directory) + os.pathsep + os.environ["PATH"], DEPLOY_TEST_LOG=str(log), DEPLOY_TEST_REPO=str(REPO), DEPLOY_TEST_AWS_RESULT=aws_result, DEPLOY_TEST_CLUSTER_ACTIONS=json.dumps(cluster_actions or ["create"]), DEPLOY_TEST_FAIL_STAGE=fail_stage, TARGET=target, EVENT=event, OPERATION=operation, AWS_REGION=region, STATE_BUCKET="test-state-bucket")
+            report = directory / "plan.md"
+            environment["PLAN_REPORT"] = str(report)
             result = subprocess.run(["bash", str(REPO / "scripts/deploy.sh")], cwd=directory, env=environment, capture_output=True, text=True)
+            result.plan_report = report.read_text() if report.exists() else ""
             commands = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
             return result, commands
 
@@ -62,7 +65,7 @@ class DeployTests(unittest.TestCase):
         self.assertTrue(all(command["workspace"] is None for command in commands if command["args"][0] == "workspace"))
 
     def test_apply_plans_platform_before_monitoring(self):
-        result, commands = self.deploy("push")
+        result, commands = self.deploy("workflow_dispatch", operation="apply")
         self.assertEqual(result.returncode, 0, result.stderr)
         changes = [(command["directory"], command["args"][0]) for command in commands if command["args"][0] in {"plan", "apply"}]
         self.assertEqual(changes, [("environments", "plan"), ("environments", "apply"), ("environments/observability", "plan"), ("environments/observability", "apply")])
@@ -78,7 +81,7 @@ class DeployTests(unittest.TestCase):
         self.assertNotIn("Monitoring plan deferred", denied.stdout)
 
     def test_region_mismatch_prevents_apply(self):
-        result, commands = self.deploy("push", region="wrong-region")
+        result, commands = self.deploy("workflow_dispatch", operation="apply", region="wrong-region")
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(any(command["args"][0] == "apply" for command in commands))
 
@@ -111,13 +114,13 @@ class DeployTests(unittest.TestCase):
     def test_cluster_deletion_or_replacement_prevents_apply(self):
         for actions in (["delete"], ["delete", "create"], ["create", "delete"]):
             with self.subTest(actions=actions):
-                result, commands = self.deploy("push", cluster_actions=actions)
+                result, commands = self.deploy("workflow_dispatch", operation="apply", cluster_actions=actions)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("monitoring", result.stderr)
                 self.assertFalse(any(command["args"][0] == "apply" for command in commands))
 
     def test_in_place_cluster_update_is_allowed(self):
-        result, commands = self.deploy("push", cluster_actions=["update"])
+        result, commands = self.deploy("workflow_dispatch", operation="apply", cluster_actions=["update"])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(sum(command["args"][0] == "apply" for command in commands), 2)
 
@@ -125,10 +128,38 @@ class DeployTests(unittest.TestCase):
         stages = [("environments", "plan"), ("environments", "apply"), ("environments/observability", "plan"), ("environments/observability", "apply")]
         for index, (directory, operation) in enumerate(stages):
             with self.subTest(directory=directory, operation=operation):
-                result, commands = self.deploy("push", fail_stage=directory + ":" + operation)
+                result, commands = self.deploy("workflow_dispatch", operation="apply", fail_stage=directory + ":" + operation)
                 self.assertNotEqual(result.returncode, 0)
                 observed = [(command["directory"], command["args"][0]) for command in commands if command["args"][0] in {"plan", "apply"}]
                 self.assertEqual(observed, stages[:index + 1])
+
+    def test_push_cannot_deploy(self):
+        result, commands = self.deploy("push", operation="apply")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(commands)
+
+    def test_plan_report_counts_replacements_without_values(self):
+        result, _ = self.deploy("pull_request", cluster_actions=["delete", "create"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("| Platform | Planned | 1 | 0 | 1 | 1 |", result.plan_report)
+        self.assertIn("| Monitoring | Planned | 1 | 0 | 1 | 1 |", result.plan_report)
+        self.assertNotIn("sensitive-test-value", result.plan_report)
+        self.assertNotIn("test-cluster", result.plan_report)
+
+    def test_plan_report_marks_deferred_and_failed_results(self):
+        deferred, _ = self.deploy("pull_request", "ResourceNotFoundException")
+        self.assertIn("| Monitoring | Deferred: cluster does not exist |", deferred.plan_report)
+        failed, _ = self.deploy("pull_request", fail_stage="environments/observability:plan")
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn("| Platform | Planned | 1 | 0 | 0 | 0 |", failed.plan_report)
+        self.assertIn("| Monitoring | Failed |", failed.plan_report)
+
+    def test_noop_and_update_counts(self):
+        for actions, counts in [(["no-op"], "0 | 0 | 0 | 0"), (["update"], "0 | 1 | 0 | 0")]:
+            with self.subTest(actions=actions):
+                result, _ = self.deploy("pull_request", cluster_actions=actions)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("| Platform | Planned | " + counts + " |", result.plan_report)
 
 
 if __name__ == "__main__":

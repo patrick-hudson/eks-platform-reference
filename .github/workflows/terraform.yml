@@ -36,8 +36,8 @@ jobs:
     needs: validate
     # Fork code never receives an OIDC session or access to state. Its validate job still runs.
     if: >-
-      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
-      (github.event_name != 'workflow_dispatch' || inputs.operation == 'plan' || github.ref == 'refs/heads/main')
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && (inputs.operation == 'plan' || github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -47,6 +47,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      pull-requests: write
     concurrency:
       group: terraform-${{ matrix.target }}
       cancel-in-progress: false
@@ -55,7 +56,7 @@ jobs:
       TF_INPUT: 'false'
       TARGET: ${{ matrix.target }}
       EVENT: ${{ github.event_name }}
-      OPERATION: ${{ github.event_name == 'pull_request' && 'plan' || github.event_name == 'workflow_dispatch' && inputs.operation || 'apply' }}
+      OPERATION: ${{ github.event_name == 'pull_request' && 'plan' || inputs.operation }}
       AWS_REGION: ${{ vars.AWS_REGION }}
       STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
     steps:
@@ -73,4 +74,15 @@ jobs:
           allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
       - name: Plan or apply platform, then monitoring
         shell: bash
+        env:
+          PLAN_REPORT: ${{ runner.temp }}/terraform-plan-${{ matrix.target }}.md
         run: bash scripts/deploy.sh
+      - name: Update PR plan comment
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PLAN_JOB_STATUS: ${{ job.status }}
+          PLAN_REPORT: ${{ runner.temp }}/terraform-plan-${{ matrix.target }}.md
+        run: bash scripts/comment-plan.sh
