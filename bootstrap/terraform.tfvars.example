@@ -1,6 +1,7 @@
 region = "us-east-1"
 state_bucket_name = "REPLACE-WITH-A-GLOBALLY-UNIQUE-BUCKET"
-github_repository = "REPLACE-OWNER/eks-platform-reference"
+# Copy sub_claim_prefix from GitHub's OIDC API, removing only the leading repo:.
+github_repository = "REPLACE-OWNER@OWNER-ID/eks-platform-reference@REPOSITORY-ID"
 environments = {
   dev = { cluster_name = "eks-platform-reference-dev", deploy_role_name = "github-eks-platform-dev-apply", plan_role_name = "github-eks-platform-dev-plan" }
   prod = { cluster_name = "eks-platform-reference-prod", deploy_role_name = "github-eks-platform-prod-apply", plan_role_name = "github-eks-platform-prod-plan" }

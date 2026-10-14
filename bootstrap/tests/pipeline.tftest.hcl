@@ -17,7 +17,7 @@ override_data {
 }
 variables {
   environment        = "dev"
-  github_repository  = "offline/eks-platform-reference"
+  github_repository  = "offline@123456/eks-platform-reference@789012"
   github_environment = "dev-plan"
   oidc_provider_arn  = "arn:aws:iam::111122223333:oidc-provider/token.actions.githubusercontent.com"
   role_name          = "offline-dev-plan"
@@ -39,7 +39,7 @@ run "plan_role_trust" {
       jsondecode(aws_iam_role.this.assume_role_policy).Statement[0].Condition == {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          "token.actions.githubusercontent.com:sub" = "repo:offline/eks-platform-reference:environment:dev-plan"
+          "token.actions.githubusercontent.com:sub" = "repo:offline@123456/eks-platform-reference@789012:environment:dev-plan"
         }
       }
     )
@@ -63,7 +63,7 @@ run "apply_role_trust" {
       jsondecode(aws_iam_role.this.assume_role_policy).Statement[0].Condition == {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          "token.actions.githubusercontent.com:sub" = "repo:offline/eks-platform-reference:environment:dev"
+          "token.actions.githubusercontent.com:sub" = "repo:offline@123456/eks-platform-reference@789012:environment:dev"
         }
       }
     )

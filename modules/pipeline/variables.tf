@@ -10,7 +10,7 @@ variable "tags" {
 }
 
 variable "github_repository" {
-  description = "GitHub owner/repository allowed to obtain credentials."
+  description = "Repository portion of GitHub's OIDC sub_claim_prefix, without repo:. Include immutable owner/repository IDs when GitHub reports them."
   type        = string
 }
 

@@ -76,7 +76,9 @@ The complete source received correctness, security, test, maintainability,
 reliability and adversarial review before the first PR. Its two findings were
 fixed: deployment refuses destructive cluster plans until monitoring cleanup,
 and offline tests inspect the actual IAM assume-role policies for both plan
-and apply roles. A scratch-copy mutation check confirmed that broadening the
+and apply roles. The policy tests use immutable GitHub owner and repository IDs;
+the bootstrap wiring test also covers the older name-only subject format.
+A scratch-copy mutation check confirmed that broadening the
 OIDC subject to a wildcard fails the policy assertion. Workflow syntax passed
 actionlint 1.7.12. These checks do not verify live AWS permissions or controllers.
 

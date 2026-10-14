@@ -103,9 +103,24 @@ aws sts get-caller-identity
 cp bootstrap/terraform.tfvars.example bootstrap/terraform.tfvars
 ```
 
-Edit that local tfvars file: choose a globally unique state bucket, set your
-GitHub `owner/repository`, and confirm the cluster and role names match the
-environment inputs. Confirm that `hosted_zone_id` identifies the zone whose
+Read the repository value GitHub actually uses in its OIDC subject:
+
+```bash
+gh api repos/OWNER/REPOSITORY/actions/oidc/customization/sub \
+  --jq '.sub_claim_prefix | sub("^repo:"; "")'
+```
+
+Set `github_repository` in the local tfvars file to that exact result. New
+repositories use `OWNER@OWNER-ID/REPOSITORY@REPOSITORY-ID`; older repositories
+may use `OWNER/REPOSITORY`. Do not infer the value from the repository URL.
+The module adds `repo:` and the exact environment to build the trust condition.
+An incorrect value causes `Not authorized to perform sts:AssumeRoleWithWebIdentity`.
+After correcting it, plan and apply bootstrap again to update the role trusts,
+then retry the workflow. This does not require reapplying the EKS platform.
+See [GitHub's subject formats](https://docs.github.com/en/actions/reference/security/oidc#immutable-subject-claims).
+
+Choose a globally unique state bucket and confirm the cluster and role names
+match the environment inputs. Confirm that `hosted_zone_id` identifies the zone whose
 name servers are delegated for your domain; duplicate hosted-zone names are
 allowed in AWS. If this account already has GitHub's OIDC provider, set
 `github_oidc_provider_arn` to its ARN. There is only one provider per issuer per
