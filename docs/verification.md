@@ -88,3 +88,24 @@ The explicit zone ID lookup succeeded, and its four name servers matched the
 domain's public delegation. No DNS records or other AWS resources were changed
 by that check. Bootstrap and monitoring use the same selector; the monitoring
 test also rejects a selected zone belonging to another domain.
+
+## Architecture diagrams
+
+The editable source is [eks-platform-reference.drawio](eks-platform-reference.drawio).
+It has two pages: AWS topology, and deployment/state flow. The README embeds
+[architecture.svg](architecture.svg); the pipeline guide embeds
+[delivery.svg](delivery.svg). Both SVGs also contain editable diagram XML.
+
+When infrastructure or workflow behavior changes, update the source in draw.io
+and export both pages from the repository root with draw.io Desktop:
+
+```bash
+drawio -x -f svg -e -u -p 1 --theme auto --embed-svg-fonts false -b 20 \
+  -o docs/architecture.svg docs/eks-platform-reference.drawio
+drawio -x -f svg -e -u -p 2 --theme auto --embed-svg-fonts false -b 20 \
+  -o docs/delivery.svg docs/eks-platform-reference.drawio
+```
+
+Review both pages at full size and in light and dark themes. Commit the source
+and its exports together. The drawings show logical subnet tiers and deployment
+order; they do not assert that monitoring is replicated across availability zones.
