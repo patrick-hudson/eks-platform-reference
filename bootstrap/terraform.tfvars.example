@@ -1,0 +1,9 @@
+region = "us-east-1"
+state_bucket_name = "REPLACE-WITH-A-GLOBALLY-UNIQUE-BUCKET"
+github_repository = "REPLACE-OWNER/eks-platform-reference"
+environments = {
+  dev = { cluster_name = "eks-platform-reference-dev", deploy_role_name = "github-eks-platform-dev-apply", plan_role_name = "github-eks-platform-dev-plan" }
+  prod = { cluster_name = "eks-platform-reference-prod", deploy_role_name = "github-eks-platform-prod-apply", plan_role_name = "github-eks-platform-prod-plan" }
+}
+domain_name = "hudson.tf"
+hosted_zone_id = "Z0992412PWY8TUM0P6ZU"
