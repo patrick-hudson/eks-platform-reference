@@ -1,5 +1,7 @@
 # Cleanup and audit
 
+[Repository overview](../README.md) · [Deployment](deployment.md) · [Costs](costs.md)
+
 This procedure removes an environment and checks AWS for resources that still
 exist. It also covers retiring the shared backend and CI identities when the
 whole reference is finished. The existing `hudson.tf` hosted zone and domain
